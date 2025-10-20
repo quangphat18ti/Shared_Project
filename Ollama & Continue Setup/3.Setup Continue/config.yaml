@@ -1,0 +1,302 @@
+name: CodeLlama Local Agent
+version: 1.0.0
+schema: v1
+
+models:
+  - name: "Qwen2.5-Coder-7B (Chat/Review)"
+    provider: ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://localhost:11434
+    roles:
+      - chat  
+      - edit  
+      - apply  
+      - summarize
+      - rerank
+    defaultCompletionOptions:
+      contextLength: 32768
+      maxTokens: 2048
+      temperature: 0.2
+      topP: 0.9
+      topK: 40
+      stop:
+        - "<|im_end|>"
+        - "<|endoftext|>"
+    systemMessage: "You are an expert Go backend developer specializing in MongoDB. Provide concise, idiomatic Go code following best practices. Focus on: error handling, context usage, clean architecture, and MongoDB query optimization."
+
+  - name: "DeepSeek-Coder-V2-16B (Deep Analysis)"
+    provider: ollama
+    model: deepseek-coder-v2:16b-lite-instruct-q4_K_M
+    apiBase: http://localhost:11434
+    defaultCompletionOptions:
+      contextLength: 16384
+      maxTokens: 4096
+      temperature: 0.3
+      topP: 0.95
+    roles:
+      - chat  
+      - summarize
+    systemMessage: "You are a senior software architect. Analyze code deeply, suggest architectural improvements, identify potential bugs, and provide comprehensive solutions for Go/MongoDB applications."
+
+  - name: "Llama3.1-8B (General Assistant)"
+    provider: ollama
+    model: llama3.1:8b
+    apiBase: http://localhost:11434
+    defaultCompletionOptions:
+      contextLength: 16384
+      temperature: 0.4
+      topP: 0.9
+    roles:
+      - chat  
+      - summarize
+  #  Embeddings model for context
+  - name: Nomic Embeddings
+    provider: ollama
+    model: nomic-embed-text:latest
+    apiBase: http://localhost:11434
+    roles:
+      - embed
+    embedOptions:
+      maxChunkSize: 512
+      maxBatchSize: 10
+  - name: "Qwen2.5-Coder-7B (Autocomplete)"
+    provider: ollama
+    model: qwen2.5-coder:7b
+    apiBase: http://localhost:11434
+    roles:
+      - edit  
+      - autocomplete  
+      - apply  
+    defaultCompletionOptions:
+      contextLength: 8192
+      maxTokens: 256
+      temperature: 0.1
+      topP: 0.8
+      topK: 30
+      stop:
+        - "\n\n"
+        - "//"
+        - "/*"
+        - "func "
+        - "type "
+        - "var "
+        - "const "
+        - "package "
+        - "import "
+        - "interface "
+        - "struct "
+        - "}\n\n"
+
+tabAutocompleteModel:
+  name: "Qwen2.5-Coder-7B (Autocomplete)"
+  provider: ollama
+  model: qwen2.5-coder:7b
+  apiBase: http://localhost:11434
+  defaultCompletionOptions:
+    contextLength: 8192
+    maxTokens: 256
+    temperature: 0.1
+    topP: 0.8
+    topK: 30
+    stop:
+      - "\n\n"
+      - "//"
+      - "/*"
+      - "func "
+      - "type "
+      - "var "
+      - "const "
+      - "package "
+      - "import "
+      - "interface "
+      - "struct "
+      - "}\n\n"
+
+contextProviders:
+  - name: code
+    params:
+      maxLines: 500
+  - name: diff
+  - name: terminal
+  - name: problems
+  - name: folder
+  - name: codebase
+    params:
+      nRetrieve: 25
+      useReranking: true
+
+prompts:
+  - name: review-go
+    description: "Comprehensive Go code review"
+    prompt: |
+      Review this Go code for:
+      1. Error handling patterns
+      2. Context usage and cancellation
+      3. Goroutine safety and potential race conditions
+      4. MongoDB query optimization
+      5. Memory leaks and resource management
+      6. Code idiomatic improvements
+
+      Provide specific suggestions with code examples.
+
+      {{{ input }}}
+
+  - name: optimize-mongo
+    description: "MongoDB query optimization"
+    prompt: |
+      Analyze this MongoDB query/operation and provide optimization suggestions:
+      1. Index usage and recommendations
+      2. Query performance improvements
+      3. Proper use of aggregation pipeline
+      4. Connection pooling and context timeout
+      5. Error handling for MongoDB operations
+
+      {{{ input }}}
+
+  - name: add-tests
+    description: "Generate Go unit tests"
+    prompt: |
+      Generate comprehensive unit tests for this Go code using:
+      - testify/assert for assertions
+      - Table-driven tests
+      - Mock MongoDB operations
+      - Edge cases and error scenarios
+
+      Code:
+      {{{ input }}}
+
+  - name: refactor
+    description: "Refactor Go code"
+    prompt: |
+      Refactor this Go code to improve:
+      1. Clean architecture principles
+      2. SOLID principles
+      3. Dependency injection
+      4. Testability
+      5. Code reusability
+
+      Provide the refactored code with explanation:
+
+      {{{ input }}}
+
+  - name: explain
+    description: "Explain code thoroughly"
+    prompt: |
+      Explain this code in detail:
+      1. What it does
+      2. How it works
+      3. Potential issues or edge cases
+      4. Best practices applied or missed
+
+      {{{ input }}}
+
+  - name: gen-handler
+    description: "Generate HTTP handler"
+    prompt: |
+      Generate a complete Go HTTP handler with:
+      - Input validation (using go-playground/validator)
+      - MongoDB CRUD operation
+      - Proper error handling and logging
+      - Context timeout handling
+      - Response formatting
+
+      Requirements: {{{ input }}}
+
+  - name: gen-model
+    description: "Generate data models"
+    prompt: |
+      Generate Go struct models with:
+      - BSON tags for MongoDB
+      - JSON tags for API
+      - Validation tags
+      - Helper methods (ToDTO, FromDTO)
+
+      Requirements: {{{ input }}}
+
+  - name: add-logging
+    description: "Add logging to code"
+    prompt: |
+      Add structured logging to this Go code using:
+      - Context-aware logging
+      - Log levels (Info, Error, Debug)
+      - Structured fields
+      - Performance logging for MongoDB queries
+      
+      {{{ input }}}
+
+  - name: security-review
+    description: "Security code review"
+    prompt: |
+      Review this Go code for security issues:
+      1. SQL/NoSQL injection risks
+      2. Authentication/authorization flaws
+      3. Input validation gaps
+      4. Sensitive data exposure
+      5. Rate limiting needs
+      
+      {{{ input }}}
+
+  - name: gen-middleware
+    description: "Generate middleware"
+    prompt: |
+      Generate Go HTTP middleware with:
+      - Error recovery
+      - Request logging
+      - CORS handling
+      - Authentication check
+      - Rate limiting
+      
+      Requirements: {{{ input }}}
+
+  - name: perf-review
+    description: "Performance review"
+    prompt: |
+      Analyze performance of this Go code:
+      1. Algorithm complexity
+      2. Memory allocations
+      3. Goroutine usage
+      4. Database query efficiency
+      5. Caching opportunities
+      
+      {{{ input }}}
+
+slashCommands:
+  - name: edit
+    description: "Edit highlighted code"
+  - name: comment
+    description: "Add comments to code"
+  - name: share
+    description: "Share code context"
+  - name: cmd
+    description: "Generate shell command"
+  - name: commit
+    description: "Generate commit message"
+  - name: test
+    description: "Run tests for current file"
+  - name: benchmark
+    description: "Generate benchmarks"
+  - name: doc
+    description: "Generate Go documentation"
+
+allowAnonymousTelemetry: false
+
+experimental:
+  modelRoles:
+    inlineEdit: "Qwen2.5-Coder-7B (Chat/Review)"
+    applyCodeBlock: "Qwen2.5-Coder-7B (Chat/Review)"
+    repoMapFileSelection: "Qwen2.5-Coder-7B (Chat/Review)"
+  readResponseTTS: false
+  useChromiumForDocsCrawling: true
+
+ui:
+  fontSize: 14
+  showChatScrollbar: false
+  codeBlockToolbarPosition: "top"
+  displayRawMarkdown: false
+
+
+docs:
+  - name: "go-docs"
+    startUrl: "https://go.dev/doc/"
+  - name: "mongo-docs" 
+    startUrl: "https://www.mongodb.com/docs/drivers/go/current/"
