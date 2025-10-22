@@ -1,7 +1,47 @@
 {
   "models": [
     {
-      "title": "Qwen2.5-Coder-7B (Chat/Review)",
+      "title": "Qwen2.5-Coder-3B (Fast Chat)",
+      "provider": "ollama",
+      "model": "qwen2.5-coder:3b",
+      "apiBase": "http://localhost:11434",
+      "contextLength": 16384,
+      "completionOptions": {
+        "temperature": 0.2,
+        "topP": 0.9,
+        "topK": 40,
+        "numPredict": 1024,
+        "numThread": 8
+      },
+      "systemMessage": "You are an expert Go backend developer specializing in MongoDB. Provide concise, idiomatic Go code. Focus on: error handling, context usage, and clean architecture."
+    },
+    {
+      "title": "StarCoder2-3B (Code Specialist)",
+      "provider": "ollama",
+      "model": "starcoder2:3b",
+      "apiBase": "http://localhost:11434",
+      "contextLength": 8192,
+      "completionOptions": {
+        "temperature": 0.15,
+        "topP": 0.85,
+        "numPredict": 512
+      },
+      "systemMessage": "Expert code completion for Go. Generate clean, efficient code."
+    },
+    {
+      "title": "DeepSeek-1.3B (Ultra-Fast)",
+      "provider": "ollama",
+      "model": "deepseek-coder:1.3b",
+      "apiBase": "http://localhost:11434",
+      "contextLength": 4096,
+      "completionOptions": {
+        "temperature": 0.1,
+        "topP": 0.8,
+        "numPredict": 256
+      }
+    },
+    {
+      "title": "Qwen2.5-7B (Advanced - Use Sparingly)",
       "provider": "ollama",
       "model": "qwen2.5-coder:7b",
       "apiBase": "http://localhost:11434",
@@ -9,50 +49,33 @@
       "completionOptions": {
         "temperature": 0.2,
         "topP": 0.9,
-        "topK": 40,
         "numPredict": 2048,
-        "stop": ["<|im_end|>", "<|endoftext|>"]
+        "numGpu": 35
       },
-      "systemMessage": "You are an expert Go backend developer specializing in MongoDB. Provide concise, idiomatic Go code following best practices. Focus on: error handling, context usage, clean architecture, and MongoDB query optimization."
-    },
-    {
-      "title": "DeepSeek-Coder-V2-16B (Deep Analysis)",
-      "provider": "ollama",
-      "model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
-      "apiBase": "http://localhost:11434",
-      "contextLength": 16384,
-      "completionOptions": {
-        "temperature": 0.3,
-        "topP": 0.95,
-        "numPredict": 4096
-      },
-      "systemMessage": "You are a senior software architect. Analyze code deeply, suggest architectural improvements, identify potential bugs, and provide comprehensive solutions for Go/MongoDB applications."
-    },
-    {
-      "title": "Llama3.1-8B (General Assistant)",
-      "provider": "ollama",
-      "model": "llama3.1:8b",
-      "apiBase": "http://localhost:11434",
-      "contextLength": 8192,
-      "completionOptions": {
-        "temperature": 0.4,
-        "topP": 0.9
-      }
+      "systemMessage": "Senior Go developer. Deep analysis and comprehensive solutions for Go/MongoDB applications."
     }
   ],
   "tabAutocompleteModel": {
-    "title": "Qwen2.5-Coder-7B (Autocomplete)",
+    "title": "Qwen2.5-Coder-1.5B (Autocomplete)",
     "provider": "ollama",
-    "model": "qwen2.5-coder:7b",
+    "model": "qwen2.5-coder:1.5b",
     "apiBase": "http://localhost:11434",
-    "contextLength": 8192,
+    "contextLength": 4096,
     "completionOptions": {
-      "temperature": 0.1,
-      "topP": 0.8,
-      "topK": 30,
-      "numPredict": 256,
-      "stop": ["\n\n", "//", "/*", "func ", "type ", "var ", "const "]
+      "temperature": 0.05,
+      "topP": 0.75,
+      "topK": 20,
+      "numPredict": 128,
+      "numThread": 8,
+      "stop": ["\n\n", "//", "/*", "func ", "type ", "var ", "const ", "package ", "import "]
     }
+  },
+  "tabAutocompleteOptions": {
+    "debounceDelay": 300,
+    "maxPromptTokens": 1024,
+    "prefixPercentage": 0.5,
+    "maxSuffixPercentage": 0.25,
+    "disableInFiles": ["*.md", "*.txt", "*.json"]
   },
   "embeddingsProvider": {
     "provider": "ollama",
@@ -62,83 +85,85 @@
   "reranker": {
     "name": "llm",
     "params": {
-      "modelTitle": "Qwen2.5-Coder-7B (Chat/Review)"
+      "modelTitle": "Qwen2.5-Coder-3B (Fast Chat)"
     }
   },
   "customCommands": [
     {
-      "name": "review-go",
-      "prompt": "Review this Go code for:\n1. Error handling patterns\n2. Context usage and cancellation\n3. Goroutine safety and potential race conditions\n4. MongoDB query optimization\n5. Memory leaks and resource management\n6. Code idiomatic improvements\n\nProvide specific suggestions with code examples.\n\n{{{ input }}}",
-      "description": "Comprehensive Go code review"
+      "name": "quick-review",
+      "prompt": "Quick code review focusing on:\n1. Critical bugs\n2. Error handling\n3. Go idioms\n\n{{{ input }}}",
+      "description": "Fast code review (uses 3B model)",
+      "modelTitle": "Qwen2.5-Coder-3B (Fast Chat)"
+    },
+    {
+      "name": "deep-review",
+      "prompt": "Comprehensive Go code review:\n1. Error handling patterns\n2. Context usage and cancellation\n3. Goroutine safety\n4. MongoDB optimization\n5. Memory leaks\n6. Architecture improvements\n\n{{{ input }}}",
+      "description": "Deep analysis (uses 7B model - slower)",
+      "modelTitle": "Qwen2.5-7B (Advanced - Use Sparingly)"
+    },
+    {
+      "name": "fix-quick",
+      "prompt": "Fix this code issue quickly:\n{{{ input }}}",
+      "description": "Quick fix (fast)",
+      "modelTitle": "Qwen2.5-Coder-3B (Fast Chat)"
+    },
+    {
+      "name": "complete",
+      "prompt": "Complete this code:\n{{{ input }}}",
+      "description": "Code completion",
+      "modelTitle": "StarCoder2-3B (Code Specialist)"
     },
     {
       "name": "optimize-mongo",
-      "prompt": "Analyze this MongoDB query/operation and provide optimization suggestions:\n1. Index usage and recommendations\n2. Query performance improvements\n3. Proper use of aggregation pipeline\n4. Connection pooling and context timeout\n5. Error handling for MongoDB operations\n\n{{{ input }}}",
-      "description": "MongoDB query optimization"
+      "prompt": "Optimize MongoDB query:\n1. Index recommendations\n2. Query performance\n3. Pipeline optimization\n\n{{{ input }}}",
+      "description": "MongoDB optimization",
+      "modelTitle": "Qwen2.5-Coder-3B (Fast Chat)"
     },
     {
       "name": "add-tests",
-      "prompt": "Generate comprehensive unit tests for this Go code using:\n- testify/assert for assertions\n- Table-driven tests\n- Mock MongoDB operations\n- Edge cases and error scenarios\n\nCode:\n{{{ input }}}",
-      "description": "Generate Go unit tests"
-    },
-    {
-      "name": "refactor",
-      "prompt": "Refactor this Go code to improve:\n1. Clean architecture principles\n2. SOLID principles\n3. Dependency injection\n4. Testability\n5. Code reusability\n\nProvide the refactored code with explanation:\n\n{{{ input }}}",
-      "description": "Refactor Go code"
-    },
-    {
-      "name": "explain",
-      "prompt": "Explain this code in detail:\n1. What it does\n2. How it works\n3. Potential issues or edge cases\n4. Best practices applied or missed\n\n{{{ input }}}",
-      "description": "Explain code thoroughly"
+      "prompt": "Generate unit tests (table-driven):\n{{{ input }}}",
+      "description": "Generate tests",
+      "modelTitle": "Qwen2.5-Coder-3B (Fast Chat)"
     },
     {
       "name": "gen-handler",
-      "prompt": "Generate a complete Go HTTP handler with:\n- Input validation (using go-playground/validator)\n- MongoDB CRUD operation\n- Proper error handling and logging\n- Context timeout handling\n- Response formatting\n\nRequirements: {{{ input }}}",
-      "description": "Generate HTTP handler"
+      "prompt": "Generate HTTP handler with validation and MongoDB:\n{{{ input }}}",
+      "description": "Generate handler",
+      "modelTitle": "Qwen2.5-Coder-3B (Fast Chat)"
     },
     {
-      "name": "gen-model",
-      "prompt": "Generate Go struct models with:\n- BSON tags for MongoDB\n- JSON tags for API\n- Validation tags\n- Helper methods (ToDTO, FromDTO)\n\nRequirements: {{{ input }}}",
-      "description": "Generate data models"
+      "name": "explain",
+      "prompt": "Explain this code concisely:\n{{{ input }}}",
+      "description": "Quick explanation",
+      "modelTitle": "DeepSeek-1.3B (Ultra-Fast)"
     }
   ],
   "slashCommands": [
     {
       "name": "edit",
-      "description": "Edit highlighted code"
+      "description": "Edit code inline"
     },
     {
       "name": "comment",
-      "description": "Add comments to code"
-    },
-    {
-      "name": "share",
-      "description": "Share code context"
+      "description": "Add comments"
     },
     {
       "name": "cmd",
       "description": "Generate shell command"
-    },
-    {
-      "name": "commit",
-      "description": "Generate commit message"
     }
   ],
   "contextProviders": [
     {
       "name": "code",
       "params": {
-        "maxLines": 500
+        "maxLines": 300
       }
     },
     {
-      "name": "docs",
+      "name": "codebase",
       "params": {
-        "sites": [
-          "https://go.dev/doc/",
-          "https://pkg.go.dev/",
-          "https://www.mongodb.com/docs/drivers/go/current/"
-        ]
+        "nRetrieve": 15,
+        "useReranking": true
       }
     },
     {
@@ -152,48 +177,14 @@
     {
       "name": "problems",
       "params": {}
-    },
-    {
-      "name": "folder",
-      "params": {}
-    },
-    {
-      "name": "codebase",
-      "params": {
-        "nRetrieve": 25,
-        "useReranking": true
-      }
     }
   ],
   "allowAnonymousTelemetry": false,
-  "docs": [
-    {
-      "title": "Go Documentation",
-      "startUrl": "https://go.dev/doc/",
-      "rootUrl": "https://go.dev/"
-    },
-    {
-      "title": "MongoDB Go Driver",
-      "startUrl": "https://www.mongodb.com/docs/drivers/go/current/",
-      "rootUrl": "https://www.mongodb.com/docs/drivers/go/"
-    }
-  ],
   "experimental": {
     "modelRoles": {
-      "inlineEdit": "Qwen2.5-Coder-7B (Chat/Review)",
-      "applyCodeBlock": "Qwen2.5-Coder-7B (Chat/Review)",
-      "repoMapFileSelection": "Qwen2.5-Coder-7B (Chat/Review)"
-    },
-    "readResponseTTS": false,
-    "useChromiumForDocsCrawling": true
-  },
-  "ui": {
-    "fontSize": 14,
-    "showChatScrollbar": false
-  },
-  "analytics": {
-    "type": "posthog",
-    "url": "https://app.posthog.com",
-    "clientKey": "your-key-here"
+      "inlineEdit": "Qwen2.5-Coder-3B (Fast Chat)",
+      "applyCodeBlock": "StarCoder2-3B (Code Specialist)",
+      "repoMapFileSelection": "DeepSeek-1.3B (Ultra-Fast)"
+    }
   }
 }
