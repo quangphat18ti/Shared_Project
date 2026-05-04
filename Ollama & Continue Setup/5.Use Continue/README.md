@@ -46,6 +46,9 @@ Continue là AI coding assistant tích hợp VSCode, cho phép:
 // Function to create a new user in MongoDB
 func CreateUser(ctx context.Context, db *mongo.Database, user *User) error {
     // [Nhấn Tab ở đây] → AI sẽ generate toàn bộ function body
+
+  
+
 }
 ```
 

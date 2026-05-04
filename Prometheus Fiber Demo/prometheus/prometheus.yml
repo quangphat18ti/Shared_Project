@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+
+  - job_name: fiber-apps
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - app1:8080
+        labels:
+          app: app1
+      - targets:
+          - app2:8080
+        labels:
+          app: app2
+      - targets:
+          - app3:8080
+        labels:
+          app: app3

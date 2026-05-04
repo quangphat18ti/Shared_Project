@@ -1,0 +1,66 @@
+services:
+  app1:
+    build:
+      context: .
+      args:
+        TARGET: cmd/fiber-app
+    environment:
+      APP_NAME: app1
+      PORT: 8080
+    ports:
+      - "8081:8080"
+
+  app2:
+    build:
+      context: .
+      args:
+        TARGET: cmd/fiber-app
+    environment:
+      APP_NAME: app2
+      PORT: 8080
+    ports:
+      - "8082:8080"
+
+  app3:
+    build:
+      context: .
+      args:
+        TARGET: cmd/fiber-app
+    environment:
+      APP_NAME: app3
+      PORT: 8080
+    ports:
+      - "8083:8080"
+
+  metrics-api:
+    build:
+      context: .
+      args:
+        TARGET: cmd/metrics-api
+    environment:
+      PORT: 8090
+      PROMETHEUS_URL: http://prometheus:9090
+      APP_SERVICES: app1,app2,app3
+    ports:
+      - "8090:8090"
+    depends_on:
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app1
+      - app2
+      - app3
+
+volumes:
+  prometheus-data:
