@@ -1,421 +1,111 @@
-# Prometheus Fiber Demo with Kafka, MongoDB, and MinIO
+# Prometheus & Grafana Monitoring Stack
 
 ## Overview
 
-This comprehensive demo showcases Prometheus monitoring for a complete microservices stack:
+This project provides a complete, production-grade monitoring stack using Prometheus and Grafana. It is pre-configured to monitor a distributed infrastructure including Kafka, MongoDB, MinIO, as well as the host machine and individual Docker containers.
 
-- **3 monitored Fiber apps**: `app1`, `app2`, `app3` (with CPU, RAM, network metrics)
-- **Kafka**: Message broker with consumer lag and throughput metrics
-- **MongoDB**: Document database with ops/sec, query latency, and resource metrics
-- **MinIO**: S3-compatible object storage with usage and request metrics
-- **Prometheus**: Central metrics aggregation and querying
-- **Metrics API**: Aggregates and summarizes metrics across all services
+### Core Components
+
+- **Prometheus** (Port 9090): Central metrics aggregation and time-series database.
+- **Grafana** (Port 3000): Advanced visualization and dashboards.
+- **Node Exporter** (Port 9100): Hardware and OS metrics (CPU, RAM, Disk, Network).
+- **cAdvisor** (Port 8085): Container-level resource usage and performance metrics.
+
+### Monitored Services
+
+- **Kafka & Zookeeper** (Port 9092 & 2181):
+  - **Kafka Exporter** (Port 9308): Tracks Consumer Lag, Topic throughput.
+  - **Kafka JMX Exporter** (Port 5556): Tracks JVM Heap, Garbage Collection, CPU usage.
+- **MongoDB** (Port 27017):
+  - **MongoDB Exporter** (Port 9216): Tracks Ops/sec, Latency, Connections.
+- **MinIO** (Port 9000 & 9001):
+  - Native Prometheus integration: Tracks Storage usage, API requests, bandwidth.
+
+---
 
 ## Quick Start
 
-### 1. Start All Services
+### 1. Start the Infrastructure
 
 ```bash
-docker compose up --build
+docker compose up -d
 ```
 
-First startup takes 2-3 minutes for all services to initialize. Wait for messages like:
-```
-prometheus_1 | level=info ts=... msg="Server is ready to receive web requests"
-```
+_It takes about 1-2 minutes for all services (especially Kafka and MongoDB) to fully initialize._
 
-### 2. Verify Services Are Running
+### 2. Verify Services
 
 ```bash
-# Check container status
 docker compose ps
-
-# Expected output (all should be healthy):
-# CONTAINER     STATUS
-# app1          Up (healthy)
-# app2          Up (healthy)
-# app3          Up (healthy)
-# mongodb       Up (healthy)
-# mongodb-exporter Up (healthy)
-# kafka         Up (healthy)
-# kafka-exporter Up (healthy)
-# minio         Up (healthy)
-# prometheus    Up (healthy)
-# metrics-api   Up (healthy)
 ```
 
-### 3. Access Web UIs
+Ensure all containers (`kafka`, `mongodb`, `prometheus`, `grafana`, etc.) are in the `Up` state.
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **App 1** | http://localhost:8081 | - |
-| **App 2** | http://localhost:8082 | - |
-| **App 3** | http://localhost:8083 | - |
-| **Prometheus** | http://localhost:9090 | - |
-| **Metrics API** | http://localhost:8090 | - |
-| **MongoDB** | mongodb://admin:password123@localhost:27017 | admin/password123 |
-| **MinIO Console** | http://localhost:9001 | minioadmin/minioadmin123 |
+### 3. Generate Sample Data (Crucial)
 
-## Detailed Architecture
-
-### Kafka Setup
-- **Zookeeper** (port 2181): Kafka cluster coordination
-- **Kafka Broker** (port 9092, 29092): Message broker with JMX enabled
-- **JMX Exporter** (port 5556): Converts Kafka JMX metrics to Prometheus format
-- **Metrics Collected**:
-  - Consumer lag (messages behind)
-  - Messages/bytes in and out per second
-  - Under-replicated partitions
-  - ISR (In-Sync Replica) shrinks
-  - Producer/broker performance
-
-### MongoDB Setup
-- **MongoDB** (port 27017): Database with profiling enabled
-- **MongoDB Exporter** (port 9216): Exports MongoDB metrics
-- **Metrics Collected**:
-  - Operations per second (read/write/update/delete)
-  - Query latency (avg response time)
-  - Memory usage (resident and virtual)
-  - CPU usage and page faults
-  - Connection pool status
-  - Replication lag (if using replica sets)
-  - Network in/out bytes
-  - Lock acquisition times
-
-### MinIO Setup
-- **MinIO** (ports 9000 API, 9001 Console): S3-compatible object storage
-- **Metrics Collected**:
-  - Storage usage and free space
-  - Request rates by method (GET, PUT, DELETE)
-  - Request latency (response times)
-  - Upload/download bandwidth
-  - Error rates
-  - Per-disk utilization
-  - Heal operations
-
-### Fiber Apps
-- **Standard Prometheus metrics**: CPU, RAM, network
-- **Custom metrics**:
-  - `fiber_http_requests_total`: Total requests by method/path/status
-  - `fiber_network_in_bytes_total`: Request body bytes
-  - `fiber_network_out_bytes_total`: Response body bytes
-
-## Generate Metrics Data
-
-All services need traffic to generate meaningful metrics. Here are examples:
-
-### For Fiber Apps
+Metrics are only generated when there is traffic. Run the provided script to simulate traffic and create Consumer Lag in Kafka:
 
 ```bash
-# Single request to generate work
-curl http://localhost:8081/work
-
-# Batch requests to all apps
-for i in {1..10}; do
-  curl -s http://localhost:8081/work > /dev/null
-  curl -s http://localhost:8082/work > /dev/null
-  curl -s http://localhost:8083/work > /dev/null
-done
-
-# Generate network traffic (request body bytes)
-curl -X POST http://localhost:8081/echo \
-  -H "Content-Type: application/json" \
-  -d '{"data":"test payload"}'
+bash generate-metrics.sh
 ```
 
-### For Kafka
+---
 
-```bash
-# Create a test topic
-docker exec -it prometheus_kafka_1 kafka-topics --create \
-  --bootstrap-server localhost:9092 \
-  --topic test-topic \
-  --partitions 3 \
-  --replication-factor 1
+## Accessing the Dashboards
 
-# Produce messages (press Ctrl+C to stop)
-docker exec -it prometheus_kafka_1 kafka-console-producer \
-  --bootstrap-server localhost:9092 \
-  --topic test-topic
+| Service           | URL                                             | Credentials (User/Pass)        |
+| ----------------- | ----------------------------------------------- | ------------------------------ |
+| **Grafana**       | [http://localhost:3000](http://localhost:3000)  | `admin` / `admin123`           |
+| **Prometheus**    | [http://localhost:9090](http://localhost:9090)  | (No Auth)                      |
+| **MinIO Console** | [http://localhost:9001](http://localhost:9001)  | `minioadmin` / `minioadmin123` |
+| **MongoDB**       | `mongodb://admin:adminpassword@localhost:27017` | `admin` / `adminpassword`      |
 
-# Type messages:
-# > {"key": "value1"}
-# > {"key": "value2"}
+### Setting up Grafana
 
-# Consume messages in another terminal
-docker exec -it prometheus_kafka_1 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic test-topic \
-  --from-beginning
-```
+1. Go to **Grafana** > **Connections** > **Data Sources** > **Add data source**.
+2. Select **Prometheus**.
+3. Set the connection URL to: `http://prometheus:9090`
+4. Click **Save & Test**. You can now import pre-built dashboards (e.g., from Grafana Labs) for Kafka, MongoDB, Node Exporter, and cAdvisor.
 
-### For MongoDB
+---
 
-```bash
-# Connect to MongoDB
-docker exec -it prometheus_mongodb_1 mongosh \
-  -u admin \
-  -p password123 \
-  --authenticationDatabase admin
+## Useful PromQL Queries
 
-# In MongoDB shell:
-use metrics_db
+You can test these queries directly in Prometheus ([http://localhost:9090/graph](http://localhost:9090/graph)) or use them in Grafana.
 
-# Insert documents (generates write ops)
-db.users.insertMany([
-  { email: "test1@example.com", name: "Test User 1" },
-  { email: "test2@example.com", name: "Test User 2" }
-])
+**1. Hardware & Containers (Node Exporter & cAdvisor)**
 
-# Query documents (generates read ops)
-db.users.find()
+- Host CPU Usage: `100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100)`
+- Container CPU Usage: `rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service!=""}[1m])`
+- Container RAM Usage: `container_memory_usage_bytes{container_label_com_docker_compose_service!=""}`
 
-# Create slow query to see latency
-db.products.aggregate([
-  { $match: { category: "Electronics" } },
-  { $group: { _id: "$category", count: { $sum: 1 } } }
-])
-```
+**2. Kafka Metrics**
 
-### For MinIO
+- Consumer Lag: `sum(kafka_consumergroup_lag) by (consumergroup, topic)`
+- Message Throughput (In): `rate(kafka_server_brokertopicmetrics_messages_in_total[1m])`
+- JVM Heap Used: `jvm_memory_heap_used_bytes{service="kafka"}`
 
-```bash
-# Upload a file
-curl -X PUT \
-  -u minioadmin:minioadmin123 \
-  --data-binary @<local-file> \
-  http://localhost:9000/test-bucket/test-file
+**3. MongoDB Metrics**
 
-# Or use MinIO Console: http://localhost:9001
-# Log in with minioadmin / minioadmin123
-# Create bucket → Upload files
-```
+- Operations Per Second: `rate(mongodb_op_counters_total[1m])`
+- Query Latency (Reads): `rate(mongodb_mongod_op_latencies_latency_total{type="reads"}[1m]) / rate(mongodb_mongod_op_latencies_ops_total{type="reads"}[1m])`
+- RAM Used (Resident): `mongodb_ss_mem_resident * 1024 * 1024`
 
-## Query Metrics with REST HTTP
+**4. MinIO Metrics**
 
-The repository includes a comprehensive `queries.rest.http` file with PromQL queries for all metrics.
+- Storage Usage %: `(1 - (minio_cluster_capacity_usable_free_bytes / minio_cluster_capacity_usable_total_bytes)) * 100`
+- API Requests/sec: `rate(minio_s3_requests_total[1m])`
 
-### Using VS Code REST Client Extension
+---
 
-1. Install extension: [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
-2. Open `queries.rest.http`
-3. Click "Send Request" above any query
+## Reference Documentation
 
-### Example Queries
-
-**Kafka Consumer Lag:**
-```
-GET http://localhost:9090/api/v1/query?query=sum(kafka_consumer_lag)
-```
-
-**MongoDB Ops/Sec:**
-```
-GET http://localhost:9090/api/v1/query?query=rate(mongodb_op_counters_total[1m])
-```
-
-**MinIO Storage Usage %:**
-```
-GET http://localhost:9090/api/v1/query?query=(1 - (minio_cluster_capacity_usable_free_bytes / minio_cluster_capacity_usable_total_bytes)) * 100
-```
-
-## Understanding the Metrics
-
-Detailed metric documentation is available in [METRICS_DOCUMENTATION.md](METRICS_DOCUMENTATION.md). Each metric includes:
-
-- **What it measures**: Description of the metric
-- **Unit**: Standard unit (msgs, bytes, ms, %)
-- **Typical Range**: Expected values for healthy systems
-- **What it indicates**: Interpretation and what values mean
-- **Business Impact**: Why this metric matters
-- **Alert thresholds**: When to raise alerts
-
-### Quick Reference: Key Metrics
-
-| Service | Metric | What It Shows |
-|---------|--------|---------------|
-| **Kafka** | `kafka_consumer_lag` | Messages behind (lower is better) |
-| **Kafka** | `rate(kafka_server_brokertopicmetrics_messagesinpersec_count[1m])` | Message throughput |
-| **Kafka** | `kafka_server_replicamanager_underreplicatedpartitions` | Cluster health (0 is good) |
-| **MongoDB** | `rate(mongodb_op_counters_total[1m])` | Database operations/sec |
-| **MongoDB** | `mongodb_op_counters_latency_avg_ms` | Query response time (lower is better) |
-| **MongoDB** | `mongodb_process_resident_memory_bytes` | RAM usage |
-| **MinIO** | `minio_cluster_capacity_usable_free_bytes` | Available storage |
-| **MinIO** | `rate(minio_s3_requests_total[1m])` | API request rate |
-| **MinIO** | `rate(minio_s3_requests_errors_total[1m])` | Error rate (0 is good) |
-| **Fiber** | `rate(fiber_network_in_bytes_total[1m])` | API input bandwidth |
-| **Fiber** | `process_resident_memory_bytes` | App memory usage |
-
-## Prometheus Query Language (PromQL) Examples
-
-### Filtering and Aggregation
-```promql
-# Get metrics for specific service
-kafka_consumer_lag{topic="test-topic"}
-
-# Sum across all topics
-sum(kafka_consumer_lag) by (topic)
-
-# Average response time
-avg(mongodb_op_counters_latency_avg_ms)
-
-# Max value across instances
-max(minio_disk_free_bytes)
-```
-
-### Rate Calculations
-```promql
-# Requests per second (over 1 minute window)
-rate(minio_s3_requests_total[1m])
-
-# Operations per second
-rate(mongodb_op_counters_total[1m])
-
-# Bytes per second
-rate(kafka_server_brokertopicmetrics_bytesinpersec_count[5m])
-```
-
-### Percentiles (Latency Analysis)
-```promql
-# 95th percentile latency
-histogram_quantile(0.95, rate(minio_s3_requests_duration_ms_bucket[5m]))
-
-# 99th percentile latency
-histogram_quantile(0.99, rate(minio_s3_requests_duration_ms_bucket[5m]))
-```
-
-### Arithmetic Operations
-```promql
-# Storage usage percentage
-(1 - (minio_cluster_capacity_usable_free_bytes / minio_cluster_capacity_usable_total_bytes)) * 100
-
-# CPU percentage (single core)
-rate(process_cpu_seconds_total[1m]) * 100
-
-# Combined throughput
-rate(kafka_server_brokertopicmetrics_messagesinpersec_count[1m]) + rate(mongodb_op_counters_total[1m])
-```
-
-### Range Vectors (Time Series Data)
-```promql
-# 5-minute average request rate
-avg_over_time(rate(minio_s3_requests_total[1m])[5m:1m])
-
-# Maximum memory usage over 1 hour
-max_over_time(mongodb_process_resident_memory_bytes[1h:5m])
-```
-
-## Dashboard Setup
-
-### In Prometheus UI (http://localhost:9090)
-
-1. Click "Graph" tab
-2. Enter PromQL query in search box
-3. Click "Execute" or press Enter
-4. Click "Graph" to visualize
-
-### Suggested Dashboards to Create
-
-1. **Kafka Dashboard**
-   - Consumer lag by topic
-   - Messages in/out rate
-   - Under-replicated partitions
-
-2. **MongoDB Dashboard**
-   - Operations/sec (read vs write)
-   - Query latency P95/P99
-   - Memory usage trend
-   - Connection count
-
-3. **MinIO Dashboard**
-   - Storage usage gauge
-   - Request rate by method
-   - Error rate
-   - Upload/download bandwidth
-
-4. **System Overview**
-   - Combined throughput (all services)
-   - Error rates (all services)
-   - Resource usage (CPU, memory, disk)
-
-## Troubleshooting
-
-### Prometheus Can't Scrape Services
-
-Check if services are healthy:
-```bash
-# Check Docker network
-docker network inspect prometheus_monitoring
-
-# Check if ports are reachable
-curl http://localhost:5556/metrics      # Kafka exporter
-curl http://localhost:9216/metrics      # MongoDB exporter
-curl http://localhost:9000/minio/...    # MinIO
-```
-
-### No Metrics Appearing
-
-1. Wait 2-3 minutes for scrape intervals to complete
-2. Check Prometheus targets: http://localhost:9090/targets
-3. Verify services are generating traffic (use examples above)
-4. Check logs: `docker compose logs <service-name>`
-
-### High Latency or Memory Issues
-
-- Adjust `global.scrape_interval` in `prometheus/prometheus.yml` (currently 5s)
-- Reduce `storage.tsdb.retention.time` (default keeps 15 days)
-- Check available disk space for Prometheus data
+For a deep dive into what each specific metric means, how to interpret them, and the business impact, please refer to the dedicated **[METRICS_DOCUMENTATION.md](METRICS_DOCUMENTATION.md)** file.
 
 ## Cleanup
 
-```bash
-# Stop all services
-docker compose down
-
-# Remove volumes (delete all data)
-docker compose down -v
-
-# Remove images
-docker compose down --rmi all
-```
-
-## Next Steps
-
-1. **Create Dashboards**: Use Grafana to visualize metrics
-2. **Set Alerts**: Configure alerting rules in Prometheus
-3. **Custom Queries**: Write PromQL queries in `queries.rest.http`
-4. **Integration**: Connect to external systems (PagerDuty, Slack, etc.)
-
-## Additional Resources
-
-- [Prometheus Documentation](https://prometheus.io/docs/)
-- [PromQL Guide](https://prometheus.io/docs/prometheus/latest/querying/basics/)
-- [Kafka Metrics](https://kafka.apache.org/documentation/#monitoring)
-- [MongoDB Metrics](https://docs.mongodb.com/manual/reference/database-statistics/)
-- [MinIO Metrics](https://min.io/docs/minio/linux/operations/monitoring.html)
-- [Fiber Framework](https://docs.gofiber.io/)
-
-
-```bash
-curl http://localhost:8090/metrics-summary/app1
-```
-
-## Stop
-
-```bash
-docker compose down
-```
-
-Remove Prometheus data too:
+To completely stop the stack and wipe all data (useful if you encounter data corruption issues):
 
 ```bash
 docker compose down -v
 ```
-
-## Files To Reuse In Your Real Apps
-
-- Add `/metrics` to each Fiber app using `promhttp`.
-- Add app labels in `prometheus/prometheus.yml`.
-- Reuse the query logic in `cmd/metrics-api/main.go`.
-- Update `APP_SERVICES` in `docker-compose.yml` when app names change.
-
-See [Prometheus.md](./Prometheus.md) for the Prometheus queries and integration notes.

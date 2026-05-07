@@ -61,7 +61,7 @@ echo ""
 echo -e "${BLUE}[2] Generating Kafka Traffic...${NC}"
 
 # Create topic if it doesn't exist
-docker exec prometheusfiberdemo-kafka-1 kafka-topics \
+docker exec kafka kafka-topics \
     --create \
     --bootstrap-server localhost:9092 \
     --topic metrics-topic \
@@ -72,7 +72,7 @@ docker exec prometheusfiberdemo-kafka-1 kafka-topics \
 echo -e "${GREEN}✓ Created/verified Kafka topic${NC}"
 
 # Produce messages
-docker exec -i prometheusfiberdemo-kafka-1 kafka-console-producer \
+docker exec -i kafka kafka-console-producer \
     --bootstrap-server localhost:9092 \
     --topic metrics-topic << 'EOF'
 {"event": "user_signup"}
@@ -81,7 +81,7 @@ docker exec -i prometheusfiberdemo-kafka-1 kafka-console-producer \
 EOF
 
 # Consume messages to create the consumer group
-docker exec prometheusfiberdemo-kafka-1 kafka-console-consumer \
+docker exec kafka kafka-console-consumer \
     --bootstrap-server localhost:9092 \
     --topic metrics-topic \
     --from-beginning \
@@ -90,7 +90,7 @@ docker exec prometheusfiberdemo-kafka-1 kafka-console-consumer \
     --timeout-ms 5000 2>/dev/null || true
 
 # Produce MORE messages to generate Consumer Lag
-docker exec -i prometheusfiberdemo-kafka-1 kafka-console-producer \
+docker exec -i kafka kafka-console-producer \
     --bootstrap-server localhost:9092 \
     --topic metrics-topic << 'EOF'
 {"event": "lag_message_1"}
@@ -117,7 +117,7 @@ echo ""
 # ============= MONGODB TRAFFIC =============
 echo -e "${BLUE}[3] Generating MongoDB Traffic...${NC}"
 check_service 27017 "MongoDB" && {
-    docker exec -i prometheus_mongodb_1 mongosh \
+    docker exec -i mongodb mongosh \
         -u admin \
         -p password123 \
         --authenticationDatabase admin \

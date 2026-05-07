@@ -17,7 +17,7 @@ services:
   # ZOOKEEPER (required by Kafka)
   # ============================================================
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
+    image: confluentinc/cp-zookeeper:7.6.0
     container_name: zookeeper
     networks: [monitoring]
     environment:
@@ -30,7 +30,7 @@ services:
   # KAFKA
   # ============================================================
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.6.0
     container_name: kafka
     networks: [monitoring]
     depends_on: [zookeeper]
@@ -47,11 +47,8 @@ services:
       # Enable JMX for metrics
       KAFKA_JMX_PORT: 9999
       KAFKA_JMX_HOSTNAME: kafka
-      EXTRA_ARGS: "-javaagent:/opt/jmx_prometheus_javaagent.jar=7072:/etc/kafka/jmx-kafka-broker.yml"
     volumes:
       - kafka_data:/var/lib/kafka/data
-      - ./config/jmx:/etc/kafka
-      - ./config/jmx/jmx_prometheus_javaagent-0.20.0.jar:/opt/jmx_prometheus_javaagent.jar
 
   # ============================================================
   # KAFKA EXPORTER (consumer lag + broker metrics)
@@ -171,7 +168,7 @@ services:
     container_name: cadvisor
     networks: [monitoring]
     ports:
-      - "8080:8080"
+      - "8085:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro

@@ -1,4 +1,4 @@
----
+hostPort: kafka:9999
 # JMX Exporter config for Kafka Broker
 # Maps JMX MBeans -> Prometheus metrics
 # Docs: https://github.com/prometheus/jmx_exporter
