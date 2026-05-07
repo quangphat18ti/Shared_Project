@@ -1,0 +1,420 @@
+### ============================================================
+### PROMETHEUS PROMQL QUERIES - REST HTTP TEST FILE
+### Target: http://localhost:9090
+### Usage: Install "REST Client" extension in VSCode
+###        Click "Send Request" on any ### block
+### ============================================================
+
+@prometheus = http://localhost:9090
+@range = 5m
+@step = 15s
+
+
+# ==============================================================
+# SECTION 1: KAFKA METRICS
+# ==============================================================
+
+### [KAFKA] Health Check - Is Prometheus scraping Kafka?
+GET {{prometheus}}/api/v1/query?query=up{job="kafka-exporter"}
+
+
+### ─────────────────────────────────────────────────────────────
+### [KAFKA 1/5] CONSUMER LAG
+### Đo: Số message chưa được consumer xử lý
+### Đơn vị: messages (số nguyên)
+### ─────────────────────────────────────────────────────────────
+
+### Tổng consumer lag của tất cả consumer groups
+GET {{prometheus}}/api/v1/query?query=sum(kafka_consumergroup_lag)%20by%20(consumergroup)
+
+### Lag từng topic + partition của 1 consumer group (thay tên group)
+GET {{prometheus}}/api/v1/query?query=kafka_consumergroup_lag{consumergroup="my-consumer-group"}
+
+### Top 5 consumer group có lag cao nhất
+GET {{prometheus}}/api/v1/query?query=topk(5%2C%20sum(kafka_consumergroup_lag)%20by%20(consumergroup))
+
+### Lag theo từng topic (tổng hợp qua partitions)
+GET {{prometheus}}/api/v1/query?query=sum(kafka_consumergroup_lag)%20by%20(consumergroup%2C%20topic)
+
+### Lag over time (range query - dùng cho graph)
+GET {{prometheus}}/api/v1/query_range?query=sum(kafka_consumergroup_lag)%20by%20(consumergroup)&start=now-1h&end=now&step={{step}}
+
+### Alert threshold: Lag > 1000 messages (boolean)
+GET {{prometheus}}/api/v1/query?query=sum(kafka_consumergroup_lag)%20by%20(consumergroup)%20>%201000
+
+
+### ─────────────────────────────────────────────────────────────
+### [KAFKA 2/5] CPU USAGE
+### Đo: CPU load của Kafka broker JVM process
+### Đơn vị: 0.0 - 1.0 (tỷ lệ, nhân 100 = %)
+### ─────────────────────────────────────────────────────────────
+
+### CPU của Kafka JVM process (qua JMX)
+GET {{prometheus}}/api/v1/query?query=jvm_process_cpu_load{service="kafka"}
+
+### CPU dạng % (nhân 100)
+GET {{prometheus}}/api/v1/query?query=jvm_process_cpu_load{service="kafka"}%20*%20100
+
+### CPU của container Kafka (qua cAdvisor) - chính xác hơn
+GET {{prometheus}}/api/v1/query?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="kafka"}[{{range}}])
+
+### CPU % so với limit của container
+GET {{prometheus}}/api/v1/query?query=(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="kafka"}[{{range}}])%20/%20container_spec_cpu_quota{container_label_com_docker_compose_service="kafka"}%20*%20container_spec_cpu_period{container_label_com_docker_compose_service="kafka"})%20*%20100
+
+### CPU over time (range)
+GET {{prometheus}}/api/v1/query_range?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="kafka"}[{{range}}])%20*%20100&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [KAFKA 3/5] RAM (MEMORY)
+### Đo: Bộ nhớ heap JVM và RSS của container
+### Đơn vị: bytes
+### ─────────────────────────────────────────────────────────────
+
+### Heap memory đang dùng (JVM)
+GET {{prometheus}}/api/v1/query?query=jvm_memory_heap_used_bytes{service="kafka"}
+
+### Heap memory tối đa được cấp phát
+GET {{prometheus}}/api/v1/query?query=jvm_memory_heap_max_bytes{service="kafka"}
+
+### % Heap đang sử dụng
+GET {{prometheus}}/api/v1/query?query=(jvm_memory_heap_used_bytes{service="kafka"}%20/%20jvm_memory_heap_max_bytes{service="kafka"})%20*%20100
+
+### RSS Memory của container Kafka (qua cAdvisor)
+GET {{prometheus}}/api/v1/query?query=container_memory_rss{container_label_com_docker_compose_service="kafka"}
+
+### Working set memory (thực tế đang dùng, không tính cache)
+GET {{prometheus}}/api/v1/query?query=container_memory_working_set_bytes{container_label_com_docker_compose_service="kafka"}
+
+### RAM qua cAdvisor - range
+GET {{prometheus}}/api/v1/query_range?query=container_memory_working_set_bytes{container_label_com_docker_compose_service="kafka"}&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [KAFKA 4/5] NETWORK IN (Bytes received by broker)
+### Đo: Dữ liệu producer gửi vào Kafka broker
+### Đơn vị: bytes/second
+### ─────────────────────────────────────────────────────────────
+
+### Bytes IN (network ingress) - tất cả topics
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_BytesInPerSec_total[{{range}}])
+
+### Bytes IN theo từng topic
+GET {{prometheus}}/api/v1/query?query=sum(rate(kafka_server_brokertopicmetrics_BytesInPerSec_total[{{range}}]))%20by%20(topic)
+
+### Bytes IN qua cAdvisor (network interface container)
+GET {{prometheus}}/api/v1/query?query=rate(container_network_receive_bytes_total{container_label_com_docker_compose_service="kafka"}[{{range}}])
+
+### Tổng bytes IN (MB/s)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_BytesInPerSec_total[{{range}}])%20/%201024%20/%201024
+
+### Network IN range query
+GET {{prometheus}}/api/v1/query_range?query=rate(container_network_receive_bytes_total{container_label_com_docker_compose_service="kafka"}[{{range}}])&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [KAFKA 5/5] NETWORK OUT (Bytes sent by broker to consumers)
+### Đo: Dữ liệu consumer đọc ra từ Kafka broker
+### Đơn vị: bytes/second
+### ─────────────────────────────────────────────────────────────
+
+### Bytes OUT (network egress) - tất cả topics
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_BytesOutPerSec_total[{{range}}])
+
+### Bytes OUT theo từng topic
+GET {{prometheus}}/api/v1/query?query=sum(rate(kafka_server_brokertopicmetrics_BytesOutPerSec_total[{{range}}]))%20by%20(topic)
+
+### Bytes OUT qua cAdvisor
+GET {{prometheus}}/api/v1/query?query=rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service="kafka"}[{{range}}])
+
+### Tỉ lệ IN/OUT ratio
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_BytesInPerSec_total[{{range}}])%20/%20rate(kafka_server_brokertopicmetrics_BytesOutPerSec_total[{{range}}])
+
+
+
+# ==============================================================
+# SECTION 2: MONGODB METRICS
+# ==============================================================
+
+### [MONGODB] Health Check
+GET {{prometheus}}/api/v1/query?query=up{job="mongodb"}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MONGO 1/6] OPS/SEC (Operations per second)
+### Đo: Số lượng thao tác DB thực hiện mỗi giây
+### Đơn vị: operations/second
+### ─────────────────────────────────────────────────────────────
+
+### Tổng ops/sec (tất cả loại: insert, query, update, delete, command)
+GET {{prometheus}}/api/v1/query?query=sum(rate(mongodb_op_counters_total[{{range}}]))%20by%20(type)
+
+### Chỉ query ops/sec
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type="query"}[{{range}}])
+
+### Insert ops/sec
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type="insert"}[{{range}}])
+
+### Update ops/sec
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type="update"}[{{range}}])
+
+### Delete ops/sec
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type="delete"}[{{range}}])
+
+### Command ops/sec (aggregate, find, etc.)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type="command"}[{{range}}])
+
+### Ops/sec range query
+GET {{prometheus}}/api/v1/query_range?query=sum(rate(mongodb_op_counters_total[{{range}}]))%20by%20(type)&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MONGO 2/6] QUERY LATENCY
+### Đo: Thời gian thực thi trung bình của các loại operations
+### Đơn vị: microseconds (µs) hoặc milliseconds (ms)
+### ─────────────────────────────────────────────────────────────
+
+### Latency trung bình của reads (µs)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_mongod_op_latencies_latency_total{type="reads"}[{{range}}])%20/%20rate(mongodb_mongod_op_latencies_ops_total{type="reads"}[{{range}}])
+
+### Latency trung bình của writes (µs)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_mongod_op_latencies_latency_total{type="writes"}[{{range}}])%20/%20rate(mongodb_mongod_op_latencies_ops_total{type="writes"}[{{range}}])
+
+### Latency trung bình của commands (µs)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_mongod_op_latencies_latency_total{type="commands"}[{{range}}])%20/%20rate(mongodb_mongod_op_latencies_ops_total{type="commands"}[{{range}}])
+
+### Latency toàn bộ ops (ms) - dễ đọc hơn
+GET {{prometheus}}/api/v1/query?query=(rate(mongodb_mongod_op_latencies_latency_total[{{range}}])%20/%20rate(mongodb_mongod_op_latencies_ops_total[{{range}}]))%20/%201000
+
+### Latency range query
+GET {{prometheus}}/api/v1/query_range?query=(rate(mongodb_mongod_op_latencies_latency_total{type="reads"}[{{range}}])%20/%20rate(mongodb_mongod_op_latencies_ops_total{type="reads"}[{{range}}]))%20/%201000&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MONGO 3/6] RAM (MEMORY)
+### Đo: Bộ nhớ MongoDB đang sử dụng (resident, virtual, wired tiger cache)
+### Đơn vị: bytes
+### ─────────────────────────────────────────────────────────────
+
+### Resident memory (RAM vật lý đang chiếm)
+GET {{prometheus}}/api/v1/query?query=mongodb_ss_mem_resident%20*%201024%20*%201024
+
+### Virtual memory (tổng virtual address space)
+GET {{prometheus}}/api/v1/query?query=mongodb_ss_mem_virtual%20*%201024%20*%201024
+
+### WiredTiger cache hiện tại (bytes)
+GET {{prometheus}}/api/v1/query?query=mongodb_mongod_wiredtiger_cache_bytes{type="currently_in_cache"}
+
+### WiredTiger cache max (bytes)
+GET {{prometheus}}/api/v1/query?query=mongodb_mongod_wiredtiger_cache_bytes{type="maximum_bytes_configured"}
+
+### % cache đang dùng
+GET {{prometheus}}/api/v1/query?query=(mongodb_mongod_wiredtiger_cache_bytes{type="currently_in_cache"}%20/%20mongodb_mongod_wiredtiger_cache_bytes{type="maximum_bytes_configured"})%20*%20100
+
+### Container RAM (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=container_memory_working_set_bytes{container_label_com_docker_compose_service="mongodb"}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MONGO 4/6] CPU
+### Đo: CPU time dùng bởi MongoDB process
+### Đơn vị: cores hoặc % (0.0 - 1.0)
+### ─────────────────────────────────────────────────────────────
+
+### CPU của MongoDB container (cAdvisor) - đơn vị: cores
+GET {{prometheus}}/api/v1/query?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="mongodb"}[{{range}}])
+
+### CPU % của MongoDB container
+GET {{prometheus}}/api/v1/query?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="mongodb"}[{{range}}])%20*%20100
+
+### CPU range query
+GET {{prometheus}}/api/v1/query_range?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="mongodb"}[{{range}}])%20*%20100&start=now-1h&end=now&step={{step}}
+
+### MongoDB connections (liên quan CPU/thread contention)
+GET {{prometheus}}/api/v1/query?query=mongodb_ss_connections{state="current"}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MONGO 5/6] NETWORK IN
+### Đo: Bytes nhận vào MongoDB từ clients/apps
+### Đơn vị: bytes/second
+### ─────────────────────────────────────────────────────────────
+
+### Bytes nhận vào MongoDB (qua MongoDB exporter)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_ss_network_bytesIn[{{range}}])
+
+### MB/s nhận vào
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_ss_network_bytesIn[{{range}}])%20/%201024%20/%201024
+
+### Network IN qua cAdvisor
+GET {{prometheus}}/api/v1/query?query=rate(container_network_receive_bytes_total{container_label_com_docker_compose_service="mongodb"}[{{range}}])
+
+### Network IN range query
+GET {{prometheus}}/api/v1/query_range?query=rate(mongodb_ss_network_bytesIn[{{range}}])&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MONGO 6/6] NETWORK OUT
+### Đo: Bytes MongoDB gửi ra cho clients/apps
+### Đơn vị: bytes/second
+### ─────────────────────────────────────────────────────────────
+
+### Bytes gửi ra từ MongoDB
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_ss_network_bytesOut[{{range}}])
+
+### MB/s gửi ra
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_ss_network_bytesOut[{{range}}])%20/%201024%20/%201024
+
+### Network OUT qua cAdvisor
+GET {{prometheus}}/api/v1/query?query=rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service="mongodb"}[{{range}}])
+
+### Network OUT range query
+GET {{prometheus}}/api/v1/query_range?query=rate(mongodb_ss_network_bytesOut[{{range}}])&start=now-1h&end=now&step={{step}}
+
+
+
+# ==============================================================
+# SECTION 3: MINIO METRICS
+# ==============================================================
+
+### [MINIO] Health Check
+GET {{prometheus}}/api/v1/query?query=up{job="minio"}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MINIO 1/6] STORAGE USAGE
+### Đo: Dung lượng lưu trữ thực tế đang dùng
+### Đơn vị: bytes
+### ─────────────────────────────────────────────────────────────
+
+### Tổng dung lượng đang dùng (bytes)
+GET {{prometheus}}/api/v1/query?query=minio_cluster_capacity_usable_total_bytes
+
+### Dung lượng đã sử dụng (bytes)
+GET {{prometheus}}/api/v1/query?query=minio_cluster_capacity_usable_free_bytes
+
+### % storage đã dùng
+GET {{prometheus}}/api/v1/query?query=(1%20-%20(minio_cluster_capacity_usable_free_bytes%20/%20minio_cluster_capacity_usable_total_bytes))%20*%20100
+
+### Dung lượng theo bucket
+GET {{prometheus}}/api/v1/query?query=minio_bucket_usage_total_bytes
+
+### Objects count theo bucket
+GET {{prometheus}}/api/v1/query?query=minio_bucket_objects_count
+
+### Storage usage range query
+GET {{prometheus}}/api/v1/query_range?query=minio_cluster_capacity_usable_total_bytes%20-%20minio_cluster_capacity_usable_free_bytes&start=now-24h&end=now&step=5m
+
+
+### ─────────────────────────────────────────────────────────────
+### [MINIO 2/6] REQUEST/SEC (Throughput)
+### Đo: Số HTTP requests MinIO xử lý mỗi giây
+### Đơn vị: requests/second
+### ─────────────────────────────────────────────────────────────
+
+### Tổng requests/sec (tất cả loại)
+GET {{prometheus}}/api/v1/query?query=sum(rate(minio_s3_requests_total[{{range}}]))%20by%20(api)
+
+### Requests/sec theo API type (GET, PUT, DELETE, LIST...)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_total{api="GetObject"}[{{range}}])
+
+### PUT requests/sec (uploads)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_total{api="PutObject"}[{{range}}])
+
+### Error rate (4xx + 5xx)
+GET {{prometheus}}/api/v1/query?query=sum(rate(minio_s3_requests_errors_total[{{range}}]))%20by%20(api)
+
+### Requests/sec range
+GET {{prometheus}}/api/v1/query_range?query=sum(rate(minio_s3_requests_total[{{range}}]))&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MINIO 3/6] CPU
+### Đo: CPU usage của MinIO container
+### Đơn vị: cores (0.0 = 0%, 1.0 = 100% of 1 core)
+### ─────────────────────────────────────────────────────────────
+
+### CPU cores sử dụng (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="minio"}[{{range}}])
+
+### CPU % (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="minio"}[{{range}}])%20*%20100
+
+### CPU range
+GET {{prometheus}}/api/v1/query_range?query=rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="minio"}[{{range}}])%20*%20100&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MINIO 4/6] RAM (MEMORY)
+### Đo: Bộ nhớ MinIO đang dùng (Go runtime + OS cache)
+### Đơn vị: bytes
+### ─────────────────────────────────────────────────────────────
+
+### RAM đang dùng (MinIO native metric)
+GET {{prometheus}}/api/v1/query?query=minio_node_process_resident_memory_bytes
+
+### RAM working set (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=container_memory_working_set_bytes{container_label_com_docker_compose_service="minio"}
+
+### RAM RSS (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=container_memory_rss{container_label_com_docker_compose_service="minio"}
+
+### RAM range query
+GET {{prometheus}}/api/v1/query_range?query=container_memory_working_set_bytes{container_label_com_docker_compose_service="minio"}&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MINIO 5/6] NETWORK IN
+### Đo: Bytes upload vào MinIO (PUT/POST requests)
+### Đơn vị: bytes/second
+### ─────────────────────────────────────────────────────────────
+
+### S3 traffic IN (bytes nhận) - MinIO native
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_traffic_received_bytes[{{range}}])
+
+### Network IN container (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=rate(container_network_receive_bytes_total{container_label_com_docker_compose_service="minio"}[{{range}}])
+
+### MB/s nhận vào
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_traffic_received_bytes[{{range}}])%20/%201024%20/%201024
+
+### Network IN range
+GET {{prometheus}}/api/v1/query_range?query=rate(minio_s3_traffic_received_bytes[{{range}}])&start=now-1h&end=now&step={{step}}
+
+
+### ─────────────────────────────────────────────────────────────
+### [MINIO 6/6] NETWORK OUT
+### Đo: Bytes download từ MinIO (GET requests)
+### Đơn vị: bytes/second
+### ─────────────────────────────────────────────────────────────
+
+### S3 traffic OUT (bytes gửi đi) - MinIO native
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_traffic_sent_bytes[{{range}}])
+
+### Network OUT container (cAdvisor)
+GET {{prometheus}}/api/v1/query?query=rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service="minio"}[{{range}}])
+
+### MB/s gửi đi
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_traffic_sent_bytes[{{range}}])%20/%201024%20/%201024
+
+### Network OUT range
+GET {{prometheus}}/api/v1/query_range?query=rate(minio_s3_traffic_sent_bytes[{{range}}])&start=now-1h&end=now&step={{step}}
+
+
+
+# ==============================================================
+# SECTION 4: API SUMMARY AGGREGATED QUERIES
+# (Dùng cho /api/summary endpoint trong Go service)
+# ==============================================================
+
+### Snapshot tất cả metrics - 1 call lấy overview
+GET {{prometheus}}/api/v1/query?query={__name__=~"kafka_consumergroup_lag|minio_cluster_capacity_usable_total_bytes|mongodb_ss_connections"}
+
+### Kafka summary: lag + network
+GET {{prometheus}}/api/v1/query?query=sum(kafka_consumergroup_lag)
+
+### MongoDB summary: ops + latency + connections
+GET {{prometheus}}/api/v1/query?query=sum(rate(mongodb_op_counters_total[5m]))
+
+### MinIO summary: storage % + requests
+GET {{prometheus}}/api/v1/query?query=(1%20-%20(minio_cluster_capacity_usable_free_bytes%20/%20minio_cluster_capacity_usable_total_bytes))%20*%20100

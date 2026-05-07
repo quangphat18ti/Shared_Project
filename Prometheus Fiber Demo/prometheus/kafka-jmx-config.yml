@@ -1,0 +1,68 @@
+# JMX Exporter configuration for Kafka
+# This collects key Kafka broker and producer/consumer metrics
+
+hostPort: kafka:9999
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  # ============= Broker Metrics =============
+  - pattern: "kafka.server<type=(.+)><name=([^,]+)><clientId=(.+)><topic=(.+)><partition=(.*)><>Value"
+    name: kafka_server_$1_$2
+    labels:
+      clientId: "$3"
+      topic: "$4"
+      partition: "$5"
+
+  - pattern: "kafka.server<type=(.+)><name=([^,]+)><clientId=(.+)><brokerHost=(.+)><brokerPort=(.+)><>Value"
+    name: kafka_server_$1_$2
+    labels:
+      clientId: "$3"
+      broker: "$4:$5"
+
+  - pattern: "kafka.server<type=(.+)><name=([^,]+)><>(\\w+)"
+    name: kafka_server_$1_$2
+    labels:
+      $3: ""
+
+  - pattern: "kafka.server<type=(.+)><name=([^,]+)><>(\\w+)"
+    name: kafka_server_$1_$2
+
+  # ============= Topic Metrics =============
+  - pattern: "kafka.server<type=(.+)><name=([^,]+)><topic=(.+)><>(\\w+)"
+    name: kafka_server_$1_$2
+    labels:
+      topic: "$3"
+
+  # ============= Network Metrics =============
+  - pattern: "kafka.network<type=(.+)><name=([^,]+)><clientId=(.+)><>(\\w+)"
+    name: kafka_network_$1_$2
+    labels:
+      clientId: "$3"
+
+  # ============= Group Coordinator Metrics =============
+  - pattern: "kafka.coordinator.group<type=(.+)><name=([^,]+)><>(\\w+)"
+    name: kafka_coordinator_group_$1_$2
+
+  # ============= Consumer Lag Metrics =============
+  - pattern: "kafka.consumer<type=(.+)><name=([^,]+)><clientId=(.+)><topic=(.+)><partition=(.*)><>Value"
+    name: kafka_consumer_$1_$2
+    labels:
+      clientId: "$3"
+      topic: "$4"
+      partition: "$5"
+
+  - pattern: "kafka.consumer<type=(.+)><name=([^,]+)><>(\\w+)"
+    name: kafka_consumer_$1_$2
+
+  # ============= Producer Metrics =============
+  - pattern: "kafka.producer<type=(.+)><name=([^,]+)><clientId=(.+)><>(\\w+)"
+    name: kafka_producer_$1_$2
+    labels:
+      clientId: "$3"
+
+  - pattern: "kafka.producer<type=(.+)><name=([^,]+)><>(\\w+)"
+    name: kafka_producer_$1_$2
+
+  # ============= Generic Catch-All =============
+  - pattern: ".*"

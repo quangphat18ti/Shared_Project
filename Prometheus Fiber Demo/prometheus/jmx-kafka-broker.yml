@@ -1,0 +1,107 @@
+---
+# JMX Exporter config for Kafka Broker
+# Maps JMX MBeans -> Prometheus metrics
+# Docs: https://github.com/prometheus/jmx_exporter
+
+startDelaySeconds: 0
+ssl: false
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  # ============================================================
+  # KAFKA BROKER - Network Request/Response (Network In/Out)
+  # ============================================================
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(BytesInPerSec|BytesOutPerSec)><>(Count)
+    name: kafka_server_brokertopicmetrics_$1_total
+    type: COUNTER
+    labels:
+      metric_type: "network"
+
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(BytesInPerSec|BytesOutPerSec), topic=(.+)><>(Count)
+    name: kafka_server_brokertopicmetrics_$1_total
+    type: COUNTER
+    labels:
+      topic: "$2"
+      metric_type: "network"
+
+  # ============================================================
+  # KAFKA BROKER - Message Rate
+  # ============================================================
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec><>(Count)
+    name: kafka_server_brokertopicmetrics_messages_in_total
+    type: COUNTER
+
+  # ============================================================
+  # JVM MEMORY (RAM)
+  # ============================================================
+  - pattern: java.lang<type=Memory><HeapMemoryUsage>(\w+)
+    name: jvm_memory_heap_$1_bytes
+    type: GAUGE
+    labels:
+      service: "kafka"
+
+  - pattern: java.lang<type=Memory><NonHeapMemoryUsage>(\w+)
+    name: jvm_memory_nonheap_$1_bytes
+    type: GAUGE
+    labels:
+      service: "kafka"
+
+  - pattern: java.lang<type=MemoryPool, name=(.+)><Usage>(\w+)
+    name: jvm_memory_pool_$2_bytes
+    type: GAUGE
+    labels:
+      pool: "$1"
+
+  # ============================================================
+  # JVM CPU
+  # ============================================================
+  - pattern: java.lang<type=OperatingSystem><ProcessCpuLoad>
+    name: jvm_process_cpu_load
+    type: GAUGE
+    labels:
+      service: "kafka"
+
+  - pattern: java.lang<type=OperatingSystem><SystemCpuLoad>
+    name: jvm_system_cpu_load
+    type: GAUGE
+
+  - pattern: java.lang<type=OperatingSystem><(AvailableProcessors|TotalPhysicalMemorySize|FreePhysicalMemorySize)>
+    name: jvm_os_$1
+    type: GAUGE
+
+  # ============================================================
+  # JVM GC
+  # ============================================================
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><CollectionCount>
+    name: jvm_gc_collection_count_total
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><CollectionTime>
+    name: jvm_gc_collection_time_ms_total
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  # ============================================================
+  # KAFKA REQUEST LATENCY
+  # ============================================================
+  - pattern: kafka.network<type=RequestMetrics, name=TotalTimeMs, request=(.+)><>(Mean|99thPercentile|Max)
+    name: kafka_network_request_total_time_ms
+    type: GAUGE
+    labels:
+      request: "$1"
+      quantile: "$2"
+
+  # ============================================================
+  # KAFKA CONTROLLER
+  # ============================================================
+  - pattern: kafka.controller<type=KafkaController, name=ActiveControllerCount><>Value
+    name: kafka_controller_active_count
+    type: GAUGE
+
+  - pattern: kafka.controller<type=KafkaController, name=OfflinePartitionsCount><>Value
+    name: kafka_controller_offline_partitions_count
+    type: GAUGE

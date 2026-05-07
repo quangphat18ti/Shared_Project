@@ -61,7 +61,9 @@ func main() {
 		err := c.Next()
 
 		status := strconv.Itoa(c.Response().StatusCode())
-		httpRequestsTotal.WithLabelValues(appName, c.Method(), c.Path(), status).Inc()
+		method := string([]byte(c.Method()))
+		path := string([]byte(c.Path()))
+		httpRequestsTotal.WithLabelValues(appName, method, path, status).Inc()
 		networkOutBytesTotal.WithLabelValues(appName).Add(float64(len(c.Response().Body())))
 		return err
 	})

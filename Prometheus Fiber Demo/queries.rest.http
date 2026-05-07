@@ -1,0 +1,207 @@
+### Prometheus Base URL
+@prometheus = http://localhost:9090
+@api_base = http://localhost:8090
+
+### ============================================
+### FIBER APPS METRICS - Summary
+### ============================================
+
+### Get current Fiber app metrics summary (all apps)
+GET {{api_base}}/metrics-summary
+
+### ============================================
+### KAFKA METRICS
+### ============================================
+
+### Kafka Broker Count - Total number of brokers online
+GET {{prometheus}}/api/v1/query?query=count(kafka_server_brokerinfo_version)
+
+### Kafka Consumer Lag - Measures how far behind consumers are
+### Lower is better, 0 means consumer is caught up
+GET {{prometheus}}/api/v1/query?query=sum(kafka_consumer_lag{topic!=""}) by (topic, group)
+
+### Kafka Consumer Lag by Group - Consumer group lag details
+GET {{prometheus}}/api/v1/query?query=kafka_consumer_lag{topic!=""} > 0
+
+### Kafka Total Messages In (Rate) - Message throughput into broker (msgs/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_messagesinpersec_count[1m])
+
+### Kafka Total Bytes In (Rate) - Data throughput into broker (bytes/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_bytesinpersec_count[1m])
+
+### Kafka Total Bytes Out (Rate) - Data throughput out of broker (bytes/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_bytesoutpersec_count[1m])
+
+### Kafka Failed Producer Requests Rate - Failed send attempts (reqs/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_delayedoperationpurgatory_purgatorysize[1m])
+
+### Kafka Under-Replicated Partitions - Partitions with missing replicas
+GET {{prometheus}}/api/v1/query?query=kafka_server_replicamanager_underreplicatedpartitions
+
+### Kafka ISR (In-Sync Replicas) Shrink Rate
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_replicamanager_isrshrinks_total[1m])
+
+### Kafka Replica Fetch Manager - Bytes/sec from replicas
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_replicafetchermanager_bytesinpersec_count[1m])
+
+### ============================================
+### MONGODB METRICS
+### ============================================
+
+### MongoDB Operations Per Second - Total ops/sec rate
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total[1m])
+
+### MongoDB Read Operations Rate (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type="query"}[1m])
+
+### MongoDB Write Operations Rate (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_total{type=~"insert|update|delete"}[1m])
+
+### MongoDB Command Execution Time (Query Latency) - Milliseconds
+GET {{prometheus}}/api/v1/query?query=mongodb_op_counters_latency_avg_ms
+
+### MongoDB Current Connections - Active client connections
+GET {{prometheus}}/api/v1/query?query=mongodb_connections_current
+
+### MongoDB Used Connections - In-use connections
+GET {{prometheus}}/api/v1/query?query=mongodb_connections_active
+
+### MongoDB Available Connections - Remaining capacity
+GET {{prometheus}}/api/v1/query?query=mongodb_connections_available
+
+### MongoDB Memory Used - Resident memory bytes
+GET {{prometheus}}/api/v1/query?query=mongodb_process_resident_memory_bytes
+
+### MongoDB Memory Virtual - Virtual memory usage
+GET {{prometheus}}/api/v1/query?query=mongodb_process_virtual_memory_bytes
+
+### MongoDB CPU Usage - CPU seconds (user + system)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_process_cpu_seconds_total[1m])
+
+### MongoDB Replication Lag - Seconds behind primary (replica sets)
+GET {{prometheus}}/api/v1/query?query=mongodb_rs_members_optimedate_ms - ignoring(instance) group_left mongodb_rs_optimedate_ms
+
+### MongoDB Network Bytes In (Rate) - Incoming bytes/sec
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_network_bytes_in_total[1m])
+
+### MongoDB Network Bytes Out (Rate) - Outgoing bytes/sec
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_network_bytes_out_total[1m])
+
+### MongoDB Page Faults - Memory page fault rate
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_extra_info_page_faults[1m])
+
+### MongoDB Lock Acquisitions - Global lock acquisition time (microseconds)
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_global_lock_acquisitions_total[1m])
+
+### MongoDB Collection Size - Total data size (bytes)
+GET {{prometheus}}/api/v1/query?query=mongodb_collection_size_bytes
+
+### MongoDB Index Count - Number of indexes per collection
+GET {{prometheus}}/api/v1/query?query=mongodb_collection_indexes
+
+### MongoDB Query Executor Stats - Documents scanned
+GET {{prometheus}}/api/v1/query?query=rate(mongodb_op_counters_scanned[1m])
+
+### ============================================
+### MINIO METRICS
+### ============================================
+
+### MinIO Total Storage Usage - Total bytes stored (bytes)
+GET {{prometheus}}/api/v1/query?query=minio_cluster_capacity_usable_total_bytes
+
+### MinIO Total Available Storage - Free space (bytes)
+GET {{prometheus}}/api/v1/query?query=minio_cluster_capacity_usable_free_bytes
+
+### MinIO Storage Usage Percentage - Used vs total (%)
+GET {{prometheus}}/api/v1/query?query=(1 - (minio_cluster_capacity_usable_free_bytes / minio_cluster_capacity_usable_total_bytes)) * 100
+
+### MinIO Total Objects - Count of stored objects
+GET {{prometheus}}/api/v1/query?query=minio_cluster_objects_total
+
+### MinIO API Requests Per Second - Request rate
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_total[1m])
+
+### MinIO API Requests Duration - Request latency (milliseconds)
+GET {{prometheus}}/api/v1/query?query=minio_s3_requests_duration_ms_bucket
+
+### MinIO GET Requests Rate (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_total{method="GET"}[1m])
+
+### MinIO PUT Requests Rate (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_total{method="PUT"}[1m])
+
+### MinIO DELETE Requests Rate (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_total{method="DELETE"}[1m])
+
+### MinIO Failed Requests - 4xx/5xx errors (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_requests_errors_total[1m])
+
+### MinIO Bytes Uploaded (Rate) - Upload bandwidth (bytes/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_tx_bytes_total[1m])
+
+### MinIO Bytes Downloaded (Rate) - Download bandwidth (bytes/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_s3_rx_bytes_total[1m])
+
+### MinIO Disk Free Space - Per disk available (bytes)
+GET {{prometheus}}/api/v1/query?query=minio_disk_free_bytes
+
+### MinIO Disk Used Space - Per disk used (bytes)
+GET {{prometheus}}/api/v1/query?query=minio_disk_used_bytes
+
+### MinIO IAM API Calls - Authentication/authorization ops (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_iam_events_total[1m])
+
+### MinIO Heal Operations - Object heal rate (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(minio_heal_objects_total[1m])
+
+### MinIO Bucket Count - Number of buckets
+GET {{prometheus}}/api/v1/query?query=minio_cluster_buckets_total
+
+### ============================================
+### COMBINED/AGGREGATED QUERIES
+### ============================================
+
+### System Throughput - All services combined (ops/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_messagesinpersec_count[1m]) + rate(mongodb_op_counters_total[1m]) + rate(minio_s3_requests_total[1m])
+
+### System Network Traffic - All services (bytes/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_brokertopicmetrics_bytesinpersec_count[1m]) + rate(mongodb_network_bytes_in_total[1m]) + rate(minio_s3_rx_bytes_total[1m])
+
+### System Error Rate - All services combined (errors/sec)
+GET {{prometheus}}/api/v1/query?query=rate(kafka_server_delayedoperationpurgatory_purgatorysize[1m]) + rate(mongodb_op_counters_errors_total[1m]) + rate(minio_s3_requests_errors_total[1m])
+
+### P95 Latency Across Services - 95th percentile response time
+GET {{prometheus}}/api/v1/query?query=histogram_quantile(0.95, rate(minio_s3_requests_duration_ms_bucket[5m]))
+
+### P99 Latency Across Services - 99th percentile response time  
+GET {{prometheus}}/api/v1/query?query=histogram_quantile(0.99, rate(minio_s3_requests_duration_ms_bucket[5m]))
+
+### ============================================
+### TIME SERIES RANGE QUERIES (for graphs)
+### ============================================
+
+### Kafka Consumer Lag Over 1 Hour
+GET {{prometheus}}/api/v1/query_range?query=kafka_consumer_lag&start=1200&step=60&end=2400
+
+### MongoDB Ops/sec Over Time
+GET {{prometheus}}/api/v1/query_range?query=rate(mongodb_op_counters_total[1m])&start=1200&step=60&end=2400
+
+### MinIO Request Rate Over Time
+GET {{prometheus}}/api/v1/query_range?query=rate(minio_s3_requests_total[1m])&start=1200&step=60&end=2400
+
+### ============================================
+### USAGE INSTRUCTIONS
+### ============================================
+### 
+### To use these queries:
+### 1. Copy the URL after GET
+### 2. Paste into browser or REST client
+### 3. Or modify the parameters as needed
+### 
+### Query Parameters:
+###   - query: PromQL query string (URL encoded)
+###   - start: Start time (Unix timestamp, optional)
+###   - end: End time (Unix timestamp, optional)
+###   - step: Query resolution (seconds, optional)
+###
+### For better results, use Prometheus UI: http://localhost:9090/graph

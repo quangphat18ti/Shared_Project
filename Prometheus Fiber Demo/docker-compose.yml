@@ -1,4 +1,7 @@
+version: "3.9"
+
 services:
+  # ============= Fiber Apps =============
   app1:
     build:
       context: .
@@ -9,6 +12,8 @@ services:
       PORT: 8080
     ports:
       - "8081:8080"
+    networks:
+      - monitoring
 
   app2:
     build:
@@ -20,6 +25,8 @@ services:
       PORT: 8080
     ports:
       - "8082:8080"
+    networks:
+      - monitoring
 
   app3:
     build:
@@ -31,6 +38,8 @@ services:
       PORT: 8080
     ports:
       - "8083:8080"
+    networks:
+      - monitoring
 
   metrics-api:
     build:
@@ -45,7 +54,10 @@ services:
       - "8090:8090"
     depends_on:
       - prometheus
+    networks:
+      - monitoring
 
+  # ============= Prometheus =============
   prometheus:
     image: prom/prometheus:v2.55.1
     command:
@@ -61,6 +73,139 @@ services:
       - app1
       - app2
       - app3
+      - kafka-exporter
+      - mongodb-exporter
+      - minio
+    networks:
+      - monitoring
+
+  # ============= Kafka Setup =============
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - monitoring
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9999:9999"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+    networks:
+      - monitoring
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions",
+          "--bootstrap-server",
+          "localhost:9092",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # JMX Exporter for Kafka (collects JMX metrics from Kafka)
+  kafka-exporter:
+    image: bitnami/jmx-exporter:latest
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./prometheus/kafka-jmx-config.yml:/etc/jmx_exporter/config.yml:ro
+    command:
+      - "5556"
+      - "/etc/jmx_exporter/config.yml"
+    depends_on:
+      - kafka
+    networks:
+      - monitoring
+
+  # ============= MongoDB Setup =============
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: metrics_db
+    volumes:
+      - mongodb-data:/data/db
+      - ./prometheus/mongo-init.js:/docker-entrypoint-initdb.d/init.js:ro
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB Exporter (collects MongoDB metrics)
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.39.0
+    ports:
+      - "9216:9216"
+    environment:
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/admin
+      MONGODB_DIRECT_CONNECT: "true"
+    command:
+      - "--mongodb.uri=mongodb://admin:password123@mongodb:27017/admin"
+      - "--log.level=info"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9216/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============= MinIO Setup =============
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_PROMETHEUS_AUTH_TYPE: "public"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  monitoring:
+    driver: bridge
 
 volumes:
   prometheus-data:
+  mongodb-data:
+  minio-data:
