@@ -72,7 +72,7 @@ services:
   # KAFKA JMX EXPORTER (cpu, memory, network via JMX)
   # ============================================================
   kafka-jmx-exporter:
-    image: bitnami/jmx-exporter:latest
+    image: soldevelo/jmx-exporter:latest
     container_name: kafka-jmx-exporter
     networks: [monitoring]
     depends_on: [kafka]
